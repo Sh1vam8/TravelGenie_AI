@@ -1,10 +1,12 @@
+
 import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from google import genai
+
+from services.gemini_service import generate_itinerary
 
 load_dotenv()
 
@@ -31,15 +33,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api_key = os.getenv("GEMINI_API_KEY")
 
-client = genai.Client(api_key=api_key)
-
-
-# -----------------------------
 # Request Model
-# -----------------------------
-
 class TripRequest(BaseModel):
     destination: str
     days: int
@@ -48,10 +43,7 @@ class TripRequest(BaseModel):
     interests: str
 
 
-# -----------------------------
 # Basic Routes
-# -----------------------------
-
 @app.get("/")
 def home():
     return {
@@ -66,44 +58,19 @@ def health():
     }
 
 
-# -----------------------------
-# AI Travel Planner Agent
-# -----------------------------
-
+# AI Travel Planner Endpoint
 @app.post("/plan-trip")
 def plan_trip(trip: TripRequest):
-
-    prompt = f"""
-You are TravelGenie, an AI Travel Planning Agent.
-
-Create a practical travel itinerary based on the user's requirements.
-
-Destination: {trip.destination}
-Number of days: {trip.days}
-Budget: ₹{trip.budget}
-Number of travelers: {trip.travelers}
-Interests: {trip.interests}
-
-Your task:
-
-1. Understand the user's requirements.
-2. Create a day-by-day itinerary.
-3. Suggest suitable activities.
-4. Provide approximate daily expenses.
-5. Calculate an approximate total cost.
-6. Keep the total estimated cost within the user's budget.
-7. Clearly mention that prices are estimates.
-
-Return the answer in a clean and easy-to-read format.
-"""
-
-    response = client.models.generate_content(
-        model="gemini-3.5-flash-lite",
-        contents=prompt
+    itinerary = generate_itinerary(
+        destination=trip.destination,
+        days=trip.days,
+        budget=trip.budget,
+        travelers=trip.travelers,
+        interests=trip.interests,
     )
 
     return {
         "agent": "Travel Planner Agent",
         "destination": trip.destination,
-        "response": response.text
+        "response": itinerary,
     }
